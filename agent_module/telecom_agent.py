@@ -16,31 +16,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import LLM_CONFIG
 
 
-# 电信坐席 System Prompt
+# 电信坐席 System Prompt - 精简版（更快）
 SYSTEM_PROMPT = """\
-你是一名经验丰富的电信客服坐席，正在为一位来电客户提供服务。
+你是一名电信客服坐席，根据客户记忆档案回答问题。
 
-你拥有该客户的完整记忆档案，包括：
-- mem0：关键特征记忆（实时提取的结构化特征点）
-- memU：客户档案（深度画像、风险标签、业务洞察、跟进建议）
-
-请根据记忆档案中的信息，为用户提供专业、贴心、高效的服务。
-
-## 工作原则
-1. **先查档再回答**：充分利用记忆档案中的信息，不要问用户已经告知过的事情
-2. **风险敏感**：如果用户有越级投诉、流失等风险标签，处理需格外谨慎
-3. **尊重偏好**：严格遵守用户的联系偏好（如要求短信联系则不打电话）
-4. **主动服务**：根据业务洞察和跟进建议，主动提供解决方案
-5. **闭环确认**：每个承诺都要明确时间节点，超时主动反馈
-
-## 输出要求
-- 回答需要**详尽完整**，充分引用档案中的每一个相关信息点
-- 每个问题都要给出**具体的处理步骤和话术**，不要笼统概括
-- 如果涉及费用，明确说明金额、扣费原因和处理方式
-- 如果涉及工单，说明负责部门、处理流程和预计时间
-- 如果有风险标签，详细说明风险等级、触发原因和应对措施
-- 如果有业务意向，给出具体的产品方案、价格和优惠
-- 最后给出**可直接使用的客服话术**（短信或电话版本）"""
+输出要求：
+- 专业、简洁、高效
+- 基于档案信息，不要编造
+- 给出具体处理建议和话术"""
 
 
 class TelecomAgent:
@@ -132,11 +115,11 @@ class TelecomAgent:
             "error": None,
         }
 
-        # 1. 从 mem0 检索相关特征
+        # 1. 从 mem0 检索相关特征（减少返回数量，加快速度）
         mem0_results = self.orchestrator.mem0.search(
             query=query,
             user_id=user_id or self.orchestrator.default_user_id,
-            top_k=8,
+            top_k=5,  # 从8减少到5，加快速度
         )
         result["context_mem0"] = [
             {
@@ -170,12 +153,12 @@ class TelecomAgent:
 
         context = "\n".join(context_parts)
 
-        # 4. 组装完整 prompt
-        user_message = f"客户说：「{query}」\n\n以下是该客户的完整记忆档案，请据此给出详尽专业的客服回复：\n\n{context}"
+        # 4. 组装精简 prompt（加快速度）
+        user_message = f"客户问题：{query}\n\n客户档案：\n{context}"
 
         result["full_prompt"] = user_message
 
-        # 5. 调用 LLM
+        # 5. 调用 LLM（优化参数）
         if not self.is_available:
             result["answer"] = self._fallback_answer(query, context, profile)
             result["error"] = "LLM 不可用（未配置 API Key），使用规则降级回答"
@@ -183,7 +166,8 @@ class TelecomAgent:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    temperature=self.temperature,
+                    temperature=0.6,  # 降低温度，加快输出
+                    max_tokens=1000,  # 限制最大token数
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_message},
@@ -195,6 +179,52 @@ class TelecomAgent:
                 result["error"] = f"LLM 调用失败: {e}"
 
         return result
+
+    def answer_stream(
+        self,
+        query: str,
+        user_id: Optional[str] = None,
+    ):
+        """流式回答生成器 - 更快显示结果"""
+        if not self.is_available:
+            yield self._fallback_answer(query, "", self.orchestrator.get_profile(user_id))
+            return
+
+        # 快速版本：简化上下文组装
+        mem0_results = self.orchestrator.mem0.search(
+            query=query,
+            user_id=user_id or self.orchestrator.default_user_id,
+            top_k=3,
+        )
+        profile = self.orchestrator.get_profile(user_id)
+
+        # 极简上下文
+        context_parts = []
+        for feat in mem0_results[:3]:
+            context_parts.append(f"- {feat.get('key', '')}: {feat.get('value', '')}")
+        if profile:
+            context_parts.append(f"- 风险: {', '.join(profile.risk_tags.items[:2])}")
+            context_parts.append(f"- 建议: {', '.join(profile.recommendations[:2])}")
+
+        context = "\n".join(context_parts)
+        user_message = f"客户问题：{query}\n\n关键信息：\n{context}"
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                temperature=0.6,
+                max_tokens=800,
+                stream=True,
+                messages=[
+                    {"role": "system", "content": "你是电信客服，简洁专业回答问题。"},
+                    {"role": "user", "content": user_message},
+                ],
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        except Exception:
+            yield "（连接超时，请稍后重试）"
 
     def _fallback_answer(
         self,

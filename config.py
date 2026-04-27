@@ -47,10 +47,14 @@ ORCHESTRATOR_CONFIG = {
 }
 
 # LLM 配置 - 默认配置，无需用户手动设置
+# 快速模型列表（按速度排序）：
+# - gpt-4o-mini: OpenAI 官方，速度快，稳定
+# - coding-minimax-m2.7-free: minimax 模型
+# - qwen-plus: 通义千问，速度快
 LLM_CONFIG = {
     "api_key": os.getenv("OPENAI_API_KEY", "sk-B3dOLsy6g9wA6wLJ8177A66aEb4348Ed843847Dc1b0eCb05"),
     "api_base": os.getenv("OPENAI_API_BASE", "https://aihubmix.com/v1"),
-    "chat_model": os.getenv("OPENAI_MODEL", "coding-minimax-m2.7-free"),
+    "chat_model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),  # 切换到更快的模型
     "temperature": 0.7,
 }
 

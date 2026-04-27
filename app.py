@@ -636,17 +636,34 @@ def render_agent_tab():
     > 闭环流程：用户提问 → mem0/memU 检索 → 上下文组装 → LLM 推理 → 结构化回答
     """)
 
-    # LLM 状态
-    if st.session_state.agent.is_available:
-        st.success("🟢 LLM 已就绪 — 将使用大模型生成智能客服回答")
-        st.caption(f"模型：`{st.session_state.agent.model}`")
-    else:
-        st.warning("🟡 LLM 初始化失败 — 将使用规则降级回答")
-        error_msg = st.session_state.agent.error_message
-        if error_msg:
-            with st.expander("🔍 查看详细错误信息", expanded=True):
-                st.error(f"```\n{error_msg}\n```")
-                st.caption("常见问题：Streamlit Cloud 可能有网络出口限制，或 API Key 无效")
+    # LLM 状态和快速模式选项
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.session_state.agent.is_available:
+            st.success("🟢 LLM 已就绪 — 将使用大模型生成智能客服回答")
+            st.caption(f"当前模型：`{st.session_state.agent.model}` | ⚡ 已启用速度优化")
+        else:
+            st.warning("🟡 LLM 初始化失败 — 将使用规则降级回答")
+            error_msg = st.session_state.agent.error_message
+            if error_msg:
+                with st.expander("🔍 查看详细错误信息", expanded=False):
+                    st.error(f"```\n{error_msg}\n```")
+
+    with col2:
+        # 快速模型选择
+        fast_model = st.selectbox(
+            "快速模型",
+            ["gpt-4o-mini", "coding-minimax-m2.7-free", "qwen-plus"],
+            index=0,
+            label_visibility="collapsed",
+            help="选择更快的模型可以显著提升响应速度",
+        )
+        if fast_model != st.session_state.agent.model:
+            st.session_state.agent = TelecomAgent(
+                orchestrator=st.session_state.orchestrator,
+                model=fast_model,
+            )
+            st.rerun()
 
     st.divider()
 
