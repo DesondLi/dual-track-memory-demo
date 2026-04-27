@@ -650,18 +650,18 @@ def render_agent_tab():
                     st.error(f"```\n{error_msg}\n```")
 
     with col2:
-        # 快速模型选择
-        fast_model = st.selectbox(
-            "快速模型",
-            ["gpt-4o-mini", "coding-minimax-m2.7-free", "qwen-plus"],
+        # Aihubmix 免费模型选择
+        free_model = st.selectbox(
+            "免费模型",
+            ["gpt-4.1-mini-free", "coding-minimax-m2.7-free"],
             index=0,
             label_visibility="collapsed",
-            help="选择更快的模型可以显著提升响应速度",
+            help="Aihubmix 免费模型列表",
         )
-        if fast_model != st.session_state.agent.model:
+        if free_model != st.session_state.agent.model:
             st.session_state.agent = TelecomAgent(
                 orchestrator=st.session_state.orchestrator,
-                model=fast_model,
+                model=free_model,
             )
             st.rerun()
 
