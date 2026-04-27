@@ -642,7 +642,11 @@ def render_agent_tab():
         st.caption(f"模型：`{st.session_state.agent.model}`")
     else:
         st.warning("🟡 LLM 初始化失败 — 将使用规则降级回答")
-        st.caption("请检查网络连接或 API Key 配置")
+        error_msg = st.session_state.agent.error_message
+        if error_msg:
+            with st.expander("🔍 查看详细错误信息", expanded=True):
+                st.error(f"```\n{error_msg}\n```")
+                st.caption("常见问题：Streamlit Cloud 可能有网络出口限制，或 API Key 无效")
 
     st.divider()
 

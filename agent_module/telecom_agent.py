@@ -76,13 +76,35 @@ class TelecomAgent:
 
         if not key:
             self.client = None
+            self.init_error = "API Key 为空"
         else:
-            self.client = OpenAI(api_key=key, base_url=base)
+            try:
+                import httpx
+                # Streamlit Cloud 可能有网络限制，增加超时和自定义客户端
+                http_client = httpx.Client(timeout=60.0, follow_redirects=True)
+                self.client = OpenAI(
+                    api_key=key,
+                    base_url=base,
+                    timeout=60.0,
+                    max_retries=3,
+                    http_client=http_client,
+                )
+                # 简单测试连接（只列模型，不做完整验证）
+                self.client.models.list()
+                self.init_error = None
+            except Exception as e:
+                self.client = None
+                self.init_error = f"{type(e).__name__}: {str(e)}"
 
     @property
     def is_available(self) -> bool:
         """LLM 是否可用"""
         return self.client is not None
+
+    @property
+    def error_message(self) -> str:
+        """获取初始化错误信息"""
+        return getattr(self, 'init_error', None)
 
     def answer(
         self,
