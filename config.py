@@ -46,11 +46,11 @@ ORCHESTRATOR_CONFIG = {
     "enable_async_memu": True,  # 是否异步执行memU提取（不阻塞对话）
 }
 
-# LLM 配置
+# LLM 配置 - 默认配置，无需用户手动设置
 LLM_CONFIG = {
-    "api_key": os.getenv("OPENAI_API_KEY", ""),
-    "api_base": os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1"),
-    "chat_model": "gpt-4o-mini",
+    "api_key": os.getenv("OPENAI_API_KEY", "sk-B3dOLsy6g9wA6wLJ8177A66aEb4348Ed843847Dc1b0eCb05"),
+    "api_base": os.getenv("OPENAI_API_BASE", "https://aihubmix.com/v1"),
+    "chat_model": os.getenv("OPENAI_MODEL", "coding-minimax-m2.7-free"),
     "temperature": 0.7,
 }
 

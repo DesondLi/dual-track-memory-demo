@@ -636,37 +636,13 @@ def render_agent_tab():
     > 闭环流程：用户提问 → mem0/memU 检索 → 上下文组装 → LLM 推理 → 结构化回答
     """)
 
-    # API 配置
-    with st.expander("⚙️ LLM 配置", expanded=not st.session_state.agent.is_available):
-        col1, col2 = st.columns(2)
-        with col1:
-            api_key = st.text_input(
-                "API Key",
-                value=os.getenv("AIHUBMIX_API_KEY", os.getenv("OPENAI_API_KEY", "")),
-                type="password",
-                help="支持 OpenAI 兼容 API（如 AIHubMix 中转）",
-            )
-        with col2:
-            api_base = st.text_input(
-                "API Base URL",
-                value=os.getenv("AIHUBMIX_API_BASE", os.getenv("OPENAI_API_BASE", "https://aihubmix.com/v1")),
-            )
-        model = st.text_input("模型", value=os.getenv("AIHUBMIX_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")))
-
-        if st.button("更新配置", use_container_width=True):
-            st.session_state.agent = TelecomAgent(
-                orchestrator=st.session_state.orchestrator,
-                api_key=api_key,
-                api_base=api_base,
-                model=model,
-            )
-            st.success("✅ 配置已更新")
-
     # LLM 状态
     if st.session_state.agent.is_available:
-        st.success("🟢 LLM 可用 — 将使用大模型生成回答")
+        st.success("🟢 LLM 已就绪 — 将使用大模型生成智能客服回答")
+        st.caption(f"模型：`{st.session_state.agent.model}`")
     else:
-        st.warning("🟡 LLM 不可用 — 将使用规则降级回答（配置 API Key 后启用大模型）")
+        st.warning("🟡 LLM 初始化失败 — 将使用规则降级回答")
+        st.caption("请检查网络连接或 API Key 配置")
 
     st.divider()
 

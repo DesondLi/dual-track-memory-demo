@@ -9,6 +9,12 @@ import re
 from typing import Dict, Any, Optional
 from openai import OpenAI
 
+# 导入默认配置
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import LLM_CONFIG
+
 
 # 电信坐席 System Prompt
 SYSTEM_PROMPT = """\
@@ -60,12 +66,13 @@ class TelecomAgent:
         temperature: float = 0.7,
     ):
         self.orchestrator = orchestrator
-        self.model = model or os.getenv("AIHUBMIX_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+        # 使用 config.py 中的默认配置，环境变量和传入参数可覆盖
+        self.model = model or os.getenv("AIHUBMIX_MODEL", os.getenv("OPENAI_MODEL", LLM_CONFIG["chat_model"]))
         self.temperature = temperature
 
-        # 初始化 LLM 客户端（优先 AIHubMix 环境变量，兼容 OpenAI）
-        key = api_key or os.getenv("AIHUBMIX_API_KEY", os.getenv("OPENAI_API_KEY", ""))
-        base = api_base or os.getenv("AIHUBMIX_API_BASE", os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1"))
+        # 初始化 LLM 客户端（优先传入参数，其次环境变量，最后使用 config.py 默认配置）
+        key = api_key or os.getenv("AIHUBMIX_API_KEY", os.getenv("OPENAI_API_KEY", LLM_CONFIG["api_key"]))
+        base = api_base or os.getenv("AIHUBMIX_API_BASE", os.getenv("OPENAI_API_BASE", LLM_CONFIG["api_base"]))
 
         if not key:
             self.client = None
