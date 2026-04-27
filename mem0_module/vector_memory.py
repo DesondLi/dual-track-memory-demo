@@ -211,7 +211,7 @@ class VectorMemory:
         top_k: int = 5,
     ) -> List[Dict[str, Any]]:
         """
-        语义搜索特征
+        混合搜索：精确关键词匹配优先，向量语义相似度次之
 
         Returns:
             匹配的特征列表，带相似度
@@ -219,34 +219,52 @@ class VectorMemory:
         # 构建查询过滤条件
         where_clause = {"user_id": user_id} if user_id else None
 
-        # 执行搜索
+        # 执行向量搜索（多返回一些，后面重排序）
         results = self.collection.query(
             query_texts=[query],
-            n_results=top_k,
+            n_results=min(top_k * 2, 10),  # 多取一些用于重排序
             where=where_clause,
         )
 
         memories = []
+        query_lower = query.lower()
+
         if results["ids"] and results["ids"][0]:
             for i, feat_id in enumerate(results["ids"][0]):
                 distance = results["distances"][0][i]
-                # 转换为相似度（距离越小越相似）
-                similarity = 1.0 / (1.0 + distance)
+                vector_similarity = 1.0 / (1.0 + distance)
 
                 meta = results["metadatas"][0][i]
-                doc = results["documents"][0][i]
+
+                # ===== 关键词精确匹配加权 =====
+                keyword_bonus = 0.0
+                # 1. key 精确匹配（最高优先级）
+                if meta["key"] in query or meta["key"].lower() in query_lower:
+                    keyword_bonus += 0.3
+                # 2. value 精确匹配（高优先级）
+                if meta.get("value", "") and meta["value"] in query:
+                    keyword_bonus += 0.2
+                # 3. category 精确匹配（次优先级）
+                if meta.get("category", "") in query:
+                    keyword_bonus += 0.1
+
+                # 最终相似度 = 向量相似度 + 关键词加分（上限 0.95）
+                final_similarity = min(vector_similarity + keyword_bonus, 0.95)
 
                 memories.append({
                     "feature_id": feat_id,
                     "key": meta["key"],
-                    "value": meta.get("value", doc.split(" ")[2] if len(doc.split(" ")) > 2 else ""),
+                    "value": meta.get("value", ""),
                     "category": meta.get("category", "其他"),
                     "confidence": meta.get("confidence", 1.0),
-                    "similarity": similarity,
+                    "similarity": final_similarity,
+                    "vector_similarity": vector_similarity,  # 原始向量分（调试用）
                     "source": "mem0",
                 })
 
-        return memories
+        # 按最终相似度排序
+        memories.sort(key=lambda x: x["similarity"], reverse=True)
+        return memories[:top_k]
 
     def get_all_features(
         self,
